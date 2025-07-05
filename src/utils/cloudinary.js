@@ -7,23 +7,52 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET
 })
 
+const getPublicIdFromUrl = (url) => {
+    const publicUrl = url.split("/upload/")[1]
+    const noVersion = publicUrl.replace(/^v\d+\//, "")
+    const publicId = noVersion.replace(/\.[^/.]+$/, "")
+    return publicId
+};
+
+
 const uploadOnCloudinary = async (localFilePath) => {
     try {
-        if(!localFilePath) return null
+        if (!localFilePath) return null
 
         const response = await cloudinary.uploader.upload(localFilePath, {
             resource_type: "auto"
         })
 
-       
-        fs.unlinkSync(localFilePath)
+
+        if (fs.existsSync(localFilePath)) {
+            fs.unlinkSync(localFilePath);
+        }
+
         return response;
 
     } catch (error) {
-        fs.unlinkSync(localFilePath)
+        if (fs.existsSync(localFilePath)) {
+            try {
+                fs.unlinkSync(localFilePath);
+            } catch { }
+        }
         // console.log("CLoudinary ERROR: ",error)
-        return null 
+        return null
     }
 }
 
-export { uploadOnCloudinary }
+const deleteFromCloudinary = async (cloudinaryUrl) => {
+    try {
+        if (!cloudinaryUrl) return null
+
+        const publicId = getPublicIdFromUrl(cloudinaryUrl)
+
+        const response = await cloudinary.uploader.destroy(publicId)
+
+        return response
+    } catch (error) {
+        return null
+    }
+}
+
+export { uploadOnCloudinary, deleteFromCloudinary }
