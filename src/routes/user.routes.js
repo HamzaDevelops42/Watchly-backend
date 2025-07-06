@@ -2,6 +2,8 @@ import { Router } from "express";
 import {
     changeCurrentPassword,
     getCurrentUser,
+    getUserChannelProfile,
+    getWatchHistory,
     loginUser,
     logoutUser,
     refreshAccessToken,
@@ -42,5 +44,7 @@ router.route("/update-avatar").patch(verifyJWT, upload.single("avatar"), updateU
 router.route("/update-cover-image").patch(verifyJWT, upload.single("coverImage"), updateUserCoverImage)
 
 
+router.route("/channel/:username").get(getUserChannelProfile)
+router.route("/history").get(verifyJWT, getWatchHistory)
 
 export default router
