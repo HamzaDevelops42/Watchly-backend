@@ -4,7 +4,7 @@ import { User } from "../models/user.model.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResopnse.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
-import { uploadOnCloudinary } from "../utils/cloudinary.js"
+import { deleteFromCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js"
 
 
 const getAllVideos = asyncHandler(async (req, res) => {
@@ -102,7 +102,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
 
 const publishAVideo = asyncHandler(async (req, res) => {
     const { title, description } = req.body
-    // TODO: get video, upload to cloudinary, create video
+
 
     if (!title?.trim() || !description?.trim()) {
         throw new ApiError(400, "Title and description are required")
@@ -135,25 +135,112 @@ const publishAVideo = asyncHandler(async (req, res) => {
     })
 
     return res
-    .status(201)
-    .json(
-        new ApiResponse(
-            200,
-            video,
-            "Video Uploaded Successfully"
+        .status(201)
+        .json(
+            new ApiResponse(
+                200,
+                video,
+                "Video Uploaded Successfully"
+            )
         )
-    )
 })
 
 const getVideoById = asyncHandler(async (req, res) => {
     const { videoId } = req.params
-    //TODO: get video by id
+
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, "Video Id is missing")
+    }
+
+    const video = await Video.findById(videoId).populate({
+        path: "owner",
+        select: "username fullName avatar"
+    })
+        .select("-__v")
+
+
+    if (!video) {
+        throw new ApiError(404, "Video not found")
+    }
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                video,
+                "Video fetched successfully"
+            )
+        )
 })
+
 
 const updateVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
-    //TODO: update video details like title, description, thumbnail
+    const { title, description } = req.body
 
+    if (!mongoose.Types.ObjectId.isValid(videoId)) {
+        throw new ApiError(400, "Invalid video ID")
+    }
+
+    if (!title && !description && !req.file?.path) {
+        throw new ApiError(400, "No update data provided");
+    }
+
+    const video = await Video.findById(videoId)
+
+    if (!video) {
+        throw new ApiError(404, "Video not found")
+    }
+
+    if (video.owner.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "You do not have access to update this video")
+    }
+
+
+    // Update title and description only if they are provided
+    if (title?.trim()) {
+        video.title = title
+    }
+
+    if (description?.trim()) {
+        video.description = description
+    }
+
+
+    // Update thumbnail only if a new file is provided
+    if (req.file?.path) {
+
+        const thumbnail = await uploadOnCloudinary(req.file.path)
+
+        if (!thumbnail?.secure_url) {
+            throw new ApiError(500, "Error while uplaoding thumbnail")
+        }
+
+
+        //Delete old thumbnail
+        if (video.thumbnail) {
+            const isDeleted = await deleteFromCloudinary(video.thumbnail)
+            if (!isDeleted) {
+                throw new ApiError(500, "Error while deleting old thumbnail")
+            }
+        }
+
+        video.thumbnail = thumbnail.secure_url
+    }
+
+
+    const updatedVideo = await video.save()
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                updatedVideo,
+                "Video Updated successfully"
+            )
+        )
 })
 
 const deleteVideo = asyncHandler(async (req, res) => {
