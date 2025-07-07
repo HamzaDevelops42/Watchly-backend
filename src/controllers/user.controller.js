@@ -405,7 +405,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
     const user = await User.aggregate([
         {
             $match: {
-                _id: mongoose.Types.ObjectId(req.user._id)
+                _id: new mongoose.Types.ObjectId(req.user._id)
             }
         },
         {
@@ -445,7 +445,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
     ])
 
     if (!user.length || !user[0]?.watchHistory?.length) {
-        throw new ApiError(404, "User doesn't have a watch history");
+        throw new ApiError(404, "User does not have a watch history");
     }
 
 
