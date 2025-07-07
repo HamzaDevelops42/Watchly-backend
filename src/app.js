@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors"
 import cookieParser from "cookie-parser";
+import { errorHandler } from "./middlewares/error.middleware.js";
 
 const app = express()
 
@@ -21,5 +22,10 @@ import videoRouter from "./routes/video.routes.js"
 //Routes Declaration
 app.use("/api/users", userRouter)
 app.use("/api/videos", videoRouter)
+
+
+
+
+app.use(errorHandler)
 
 export { app }
