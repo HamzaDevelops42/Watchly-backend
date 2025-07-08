@@ -1,14 +1,20 @@
 import mongoose, { isValidObjectId } from "mongoose"
 import { Video } from "../models/video.model.js"
-import { User } from "../models/user.model.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResopnse.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
 import { deleteFromCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js"
 
+const sanitizePrivateVideo = (videoDoc) => {
+    const obj = videoDoc.toObject();
+    delete obj.videoFile;
+    delete obj.thumbnail;
+    return obj;
+};
+
 
 const getAllVideos = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query
+    const { page = 1, limit = 10, query, sortBy, sortType } = req.query
 
     const sortField = sortBy || "createdAt";
     const sortOrder = parseInt(sortType, 10) === 1 ? 1 : -1;
@@ -103,6 +109,8 @@ const getAllVideos = asyncHandler(async (req, res) => {
 const publishAVideo = asyncHandler(async (req, res) => {
     const { title, description } = req.body
 
+    const isPublishedRaw = req.body.isPublished;
+    const isPublished = isPublishedRaw === false || isPublishedRaw === "false" ? false : true;
 
     if (!title?.trim() || !description?.trim()) {
         throw new ApiError(400, "Title and description are required")
@@ -125,21 +133,31 @@ const publishAVideo = asyncHandler(async (req, res) => {
         throw new ApiError(500, "Error while uploading thumbnail")
     }
 
+
     const video = await Video.create({
         videoFile: videoFile.secure_url,
         thumbnail: thumbnail.secure_url,
         title,
         description,
         duration: videoFile.duration || 0,
-        owner: req.user._id
+        owner: req.user._id,
+        isPublished
     })
+
+    const populatedVideo = await Video.findById(video._id).populate({
+        path: "owner",
+        select: "username fullName avatar"
+    });
+
+    const result = populatedVideo.isPublished ? populatedVideo : sanitizePrivateVideo(populatedVideo);
+
 
     return res
         .status(201)
         .json(
             new ApiResponse(
                 200,
-                video,
+                result,
                 "Video Uploaded Successfully"
             )
         )
@@ -163,6 +181,10 @@ const getVideoById = asyncHandler(async (req, res) => {
         throw new ApiError(404, "Video not found")
     }
 
+    if (!video.isPublished) {
+        throw new ApiError(403, "Video is not published")
+    }
+
     return res
         .status(200)
         .json(
@@ -174,12 +196,11 @@ const getVideoById = asyncHandler(async (req, res) => {
         )
 })
 
-
 const updateVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
     const { title, description } = req.body
 
-    if (!mongoose.Types.ObjectId.isValid(videoId)) {
+    if (!isValidObjectId(videoId)) {
         throw new ApiError(400, "Invalid video ID")
     }
 
@@ -221,7 +242,7 @@ const updateVideo = asyncHandler(async (req, res) => {
         //Delete old thumbnail
         if (video.thumbnail) {
             const isDeleted = await deleteFromCloudinary(video.thumbnail)
-            if (!isDeleted) {
+            if (isDeleted?.result !== "ok") {
                 throw new ApiError(500, "Error while deleting old thumbnail")
             }
         }
@@ -229,15 +250,20 @@ const updateVideo = asyncHandler(async (req, res) => {
         video.thumbnail = thumbnail.secure_url
     }
 
+    await video.save();
+    const updatedVideo = await Video.findById(videoId).populate({
+        path: "owner",
+        select: "username fullName avatar"
+    });
 
-    const updatedVideo = await video.save()
+    const result = updatedVideo.isPublished ? video : sanitizePrivateVideo(updatedVideo);
 
     return res
         .status(200)
         .json(
             new ApiResponse(
                 200,
-                updatedVideo,
+                result,
                 "Video Updated successfully"
             )
         )
@@ -245,11 +271,84 @@ const updateVideo = asyncHandler(async (req, res) => {
 
 const deleteVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
-    //TODO: delete video
+
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video ID")
+    }
+
+    const video = await Video.findById(videoId)
+
+    if (!video) {
+        throw new ApiError(404, "Video not found")
+    }
+
+    if (video.owner.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "You do not have access to delete this video")
+    }
+
+    if (video.videoFile) {
+        const isVideoDeleted = await deleteFromCloudinary(video.videoFile, "video");
+        if (isVideoDeleted?.result !== "ok") {
+            throw new ApiError(500, "Error while deleting video file");
+        }
+    }
+
+    if (video.thumbnail) {
+        const isThumbnailDeleted = await deleteFromCloudinary(video.thumbnail);
+        if (isThumbnailDeleted?.result !== "ok") {
+            throw new ApiError(500, "Error while deleting thumbnail");
+        }
+    }
+
+
+    const deleted = await video.deleteOne()
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                deleted,
+                "Video deleted successfully"
+            )
+        )
 })
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
     const { videoId } = req.params
+
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video ID")
+    }
+
+    const video = await Video.findById(videoId)
+
+    if (!video) {
+        throw new ApiError(404, "Video not found")
+    }
+
+    if (video.owner.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "You do not have access to change publish status this video")
+    }
+
+    const newPublishStatus = !video.isPublished
+
+    video.isPublished = newPublishStatus
+    const updatedVideo = await video.save()
+
+    const status = updatedVideo.isPublished ? "Published" : "Unpublished"
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                { isPublished: updatedVideo.isPublished },
+                `video has been ${status.toLowerCase()} successfully`
+            )
+        )
+
+
 })
 
 export {

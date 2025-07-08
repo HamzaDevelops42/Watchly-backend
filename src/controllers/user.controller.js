@@ -269,7 +269,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
 
     const isDeleted = await deleteFromCloudinary(req.user.avatar)
 
-    if (!isDeleted) {
+    if (isDeleted?.result !== "ok") {
         throw new ApiError(500, "Error while deleting old avatar image")
     }
 
@@ -304,7 +304,7 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     if (req.user.coverImage) {
         const isDeleted = await deleteFromCloudinary(req.user.coverImage)
 
-        if (!isDeleted) {
+        if (isDeleted?.result !== "ok") {
             throw new ApiError(500, "Error while deleting old cover image")
         }
 
