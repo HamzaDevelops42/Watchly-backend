@@ -1,5 +1,6 @@
 import mongoose, { isValidObjectId } from "mongoose"
 import { Video } from "../models/video.model.js"
+import { User } from "../models/user.model.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
@@ -373,6 +374,34 @@ const incrementVideoView = asyncHandler(async (req, res) => {
         { $inc: { views: 1 } },
         { new: true }
     )
+
+
+    // Add the video to watchHistory if user is logged in
+    if (req.user?._id) {
+        const user = await User.findById(req.user._id).select("watchHistory");
+
+        if (user) {
+            const alreadyWatched = user.watchHistory.includes(videoId);
+
+            if (alreadyWatched) {
+                await User.findByIdAndUpdate(req.user._id, {
+                    $pull: { watchHistory: videoId },
+                });
+            }
+
+            await User.findByIdAndUpdate(req.user._id, {
+                $push: {
+                    watchHistory: {
+                        $each: [videoId],
+                        $position: 0,
+                        // $slice: 50 If u want to store only last 50 videos in the user watch history
+                    },
+                },
+            });
+        }
+    }
+
+
 
     return res
         .status(200)

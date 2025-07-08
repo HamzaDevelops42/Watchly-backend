@@ -10,6 +10,7 @@ import {
     togglePublishStatus,
     updateVideo
 } from "../controllers/video.controller.js"
+import { optionalJWT } from "../middlewares/optionalAuth.middleware.js"
 
 
 const router = Router()
@@ -38,6 +39,6 @@ router.route("/:videoId")
     .delete(verifyJWT, deleteVideo)
 
 router.route("/toggle/publish/:videoId").patch(verifyJWT, togglePublishStatus)
-router.route("/:videoId/view", incrementVideoView)
+router.route("/:videoId/view").patch(optionalJWT, incrementVideoView)
 
 export default router

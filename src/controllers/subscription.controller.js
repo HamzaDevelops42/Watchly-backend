@@ -90,7 +90,7 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
     const list = await Subscription.aggregatePaginate(
         Subscription.aggregate([
             {
-                $match: { channel: channelId }
+                $match: { channel: new mongoose.Types.ObjectId(channelId.toString()) }
             },
 
             {
@@ -174,7 +174,7 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
     const list = await Subscription.aggregatePaginate(
         Subscription.aggregate([
             {
-                $match: { subscriber: subscriberId }
+                $match: { subscriber: new mongoose.Types.ObjectId(subscriberId.toString()) }
             },
 
             {
