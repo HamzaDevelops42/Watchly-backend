@@ -351,11 +351,45 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
 
 })
 
+const incrementVideoView = asyncHandler(async (req, res) => {
+    const { videoId } = req.params
+
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video ID")
+    }
+
+    const video = await Video.findById(videoId)
+
+    if (!video) {
+        throw new ApiError(404, "Video not found")
+    }
+
+    if (!video.isPublished) {
+        throw new ApiError(403, "Video is not published")
+    }
+
+    const updatedVideo = await Video.findByIdAndUpdate(
+        videoId,
+        { $inc: { views: 1 } },
+        { new: true }
+    );
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                { views: updatedVideo.views },
+                "Video view count incremented")
+        )
+})
+
 export {
     getAllVideos,
     publishAVideo,
     getVideoById,
     updateVideo,
     deleteVideo,
-    togglePublishStatus
+    togglePublishStatus,
+    incrementVideoView
 }
