@@ -19,7 +19,7 @@ const generateAccessAndRefreshTokens = async (userId) => {
 }
 
 const registerUser = asyncHandler(async (req, res) => {
-    // res.send('File uploaded');
+    // res.send('File uploaded')
     //          STEPS
     // get user details from frontend
     // validation - not empty
@@ -332,7 +332,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Username is missing")
     }
 
-    const loggedInUserId = req.user?._id || null;
+    const loggedInUserId = req.user?._id || null
 
 
     const channel = await User.aggregate([
@@ -445,7 +445,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
     ])
 
     if (!user.length || !user[0]?.watchHistory?.length) {
-        throw new ApiError(404, "User does not have a watch history");
+        throw new ApiError(404, "User does not have a watch history")
     }
 
 

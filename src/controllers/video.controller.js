@@ -6,18 +6,18 @@ import { asyncHandler } from "../utils/asyncHandler.js"
 import { deleteFromCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js"
 
 const sanitizePrivateVideo = (videoDoc) => {
-    const obj = videoDoc.toObject();
-    delete obj.videoFile;
-    delete obj.thumbnail;
-    return obj;
-};
+    const obj = videoDoc.toObject()
+    delete obj.videoFile
+    delete obj.thumbnail
+    return obj
+}
 
 
 const getAllVideos = asyncHandler(async (req, res) => {
     const { page = 1, limit = 10, query, sortBy, sortType } = req.query
 
-    const sortField = sortBy || "createdAt";
-    const sortOrder = parseInt(sortType, 10) === 1 ? 1 : -1;
+    const sortField = sortBy || "createdAt"
+    const sortOrder = parseInt(sortType, 10) === 1 ? 1 : -1
 
     const pipeline = [{ $match: { isPublished: true } }]
 
@@ -78,8 +78,8 @@ const getAllVideos = asyncHandler(async (req, res) => {
         }
     )
 
-    const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const limitNum = Math.max(1, parseInt(limit, 10) || 10);
+    const pageNum = Math.max(1, parseInt(page, 10) || 1)
+    const limitNum = Math.max(1, parseInt(limit, 10) || 10)
 
     const options = {
         page: pageNum,
@@ -87,7 +87,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
         customLabels: {
             docs: "videos"
         }
-    };
+    }
 
 
     const videos = await Video.aggregatePaginate(
@@ -109,8 +109,8 @@ const getAllVideos = asyncHandler(async (req, res) => {
 const publishAVideo = asyncHandler(async (req, res) => {
     const { title, description } = req.body
 
-    const isPublishedRaw = req.body.isPublished;
-    const isPublished = isPublishedRaw === false || isPublishedRaw === "false" ? false : true;
+    const isPublishedRaw = req.body.isPublished
+    const isPublished = isPublishedRaw === false || isPublishedRaw === "false" ? false : true
 
     if (!title?.trim() || !description?.trim()) {
         throw new ApiError(400, "Title and description are required")
@@ -147,9 +147,9 @@ const publishAVideo = asyncHandler(async (req, res) => {
     const populatedVideo = await Video.findById(video._id).populate({
         path: "owner",
         select: "username fullName avatar"
-    });
+    })
 
-    const result = populatedVideo.isPublished ? populatedVideo : sanitizePrivateVideo(populatedVideo);
+    const result = populatedVideo.isPublished ? populatedVideo : sanitizePrivateVideo(populatedVideo)
 
 
     return res
@@ -205,7 +205,7 @@ const updateVideo = asyncHandler(async (req, res) => {
     }
 
     if (!title && !description && !req.file?.path) {
-        throw new ApiError(400, "No update data provided");
+        throw new ApiError(400, "No update data provided")
     }
 
     const video = await Video.findById(videoId)
@@ -250,13 +250,13 @@ const updateVideo = asyncHandler(async (req, res) => {
         video.thumbnail = thumbnail.secure_url
     }
 
-    await video.save();
+    await video.save()
     const updatedVideo = await Video.findById(videoId).populate({
         path: "owner",
         select: "username fullName avatar"
-    });
+    })
 
-    const result = updatedVideo.isPublished ? video : sanitizePrivateVideo(updatedVideo);
+    const result = updatedVideo.isPublished ? video : sanitizePrivateVideo(updatedVideo)
 
     return res
         .status(200)
@@ -287,28 +287,28 @@ const deleteVideo = asyncHandler(async (req, res) => {
     }
 
     if (video.videoFile) {
-        const isVideoDeleted = await deleteFromCloudinary(video.videoFile, "video");
+        const isVideoDeleted = await deleteFromCloudinary(video.videoFile, "video")
         if (isVideoDeleted?.result !== "ok") {
-            throw new ApiError(500, "Error while deleting video file");
+            throw new ApiError(500, "Error while deleting video file")
         }
     }
 
     if (video.thumbnail) {
-        const isThumbnailDeleted = await deleteFromCloudinary(video.thumbnail);
+        const isThumbnailDeleted = await deleteFromCloudinary(video.thumbnail)
         if (isThumbnailDeleted?.result !== "ok") {
-            throw new ApiError(500, "Error while deleting thumbnail");
+            throw new ApiError(500, "Error while deleting thumbnail")
         }
     }
 
 
-    const deleted = await video.deleteOne()
+    const result = await video.deleteOne()
 
     return res
         .status(200)
         .json(
             new ApiResponse(
                 200,
-                deleted,
+                { deleted: result.deletedCount === 1 },
                 "Video deleted successfully"
             )
         )
@@ -372,7 +372,7 @@ const incrementVideoView = asyncHandler(async (req, res) => {
         videoId,
         { $inc: { views: 1 } },
         { new: true }
-    );
+    )
 
     return res
         .status(200)

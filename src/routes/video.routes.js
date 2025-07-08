@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router } from "express"
 import { verifyJWT } from "../middlewares/auth.middleware.js"
 import { upload, uploadVideoAndThumbnail } from "../middlewares/multer.middleware.js"
 import {
@@ -9,7 +9,7 @@ import {
     publishAVideo,
     togglePublishStatus,
     updateVideo
-} from "../controllers/video.controller.js";
+} from "../controllers/video.controller.js"
 
 
 const router = Router()
