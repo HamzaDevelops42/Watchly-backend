@@ -46,7 +46,20 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
             $match: { owner: new mongoose.Types.ObjectId(userId.toString()) }
         },
         {
-            $addFields: { videoCount: { $size: "$videos" } }
+            $lookup: {
+                from: "videos",
+                localField: "videos",
+                foreignField: "_id",
+                as: "publishedVideos",
+                pipeline: [
+                    {
+                        $match: { isPublished: true }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields: { videoCount: { $size: "$publishedVideos" } }
         },
         {
             $project: {
@@ -97,6 +110,11 @@ const getPlaylistById = asyncHandler(async (req, res) => {
                 foreignField: "_id",
                 as: "videos",
                 pipeline: [
+                    {
+                        $match: {
+                            isPublished: true // Only fetch published videos
+                        }
+                    },
                     {
                         $lookup: {
                             from: "users",
@@ -263,7 +281,7 @@ const updatePlaylist = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Id is not valid")
     }
 
-    if(!name?.trim() && !description?.trim()){
+    if (!name?.trim() && !description?.trim()) {
         throw new ApiError(400, "Name or description is required")
     }
 
@@ -277,26 +295,26 @@ const updatePlaylist = asyncHandler(async (req, res) => {
         throw new ApiError(403, "You dont have access to this")
     }
 
-    if(name?.trim()){
+    if (name?.trim()) {
         playlist.name = name.trim()
     }
 
-    if(description?.trim()){
+    if (description?.trim()) {
         playlist.description = description.trim()
     }
 
     const updatedPlaylist = await playlist.save()
 
     return res
-    .status(200)
-    .json(
-        new ApiResponse(
-            200,
-            updatedPlaylist,
-            "Playlist updated successfully"
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                updatedPlaylist,
+                "Playlist updated successfully"
+            )
         )
-    )
-    
+
 })
 
 export {
